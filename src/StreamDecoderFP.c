@@ -113,6 +113,7 @@ static int ReadRawPacket(void *data, uint8_t *buf, int buf_size)
     char *_current_ = "ReadRawPacket";
     fprintf(stdout, "%s starting ... \n", _current_);
 
+    /*
     struct fstream *fdata = data;
 
     fprintf(stdout, "%s Retrieving struct fstream\n", _current_);
@@ -123,8 +124,10 @@ static int ReadRawPacket(void *data, uint8_t *buf, int buf_size)
     fprintf(stdout, "%s EOF not reached up\n", _current_);
 
     uint8_t inbuf[buf_size + AV_INPUT_BUFFER_PADDING_SIZE];
+    */
     size_t data_size = 0;
     /* set end of buffer to 0 (this ensures that no overreading happens for damaged MPEG streams) */
+    /*
     memset(inbuf + buf_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
     fprintf(stdout, "%s Input Buffer Initialized\n", _current_);
@@ -138,7 +141,7 @@ static int ReadRawPacket(void *data, uint8_t *buf, int buf_size)
 
     fprintf(stdout, "%s Read data, ready to be copied\n", _current_);
     memcpy(buf, &inbuf, sizeof(uint8_t) * (buf_size + AV_INPUT_BUFFER_PADDING_SIZE));  
-
+    */
     fprintf(stdout, "%s completed\n", _current_);
 
     return data_size;
