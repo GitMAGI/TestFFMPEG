@@ -57,15 +57,15 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
 
     // 6.
     AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
-    if (codec_ctx) {
-        fprintf(stderr, "%s\n", "Could not allocate decoder context");
+    if (!codec_ctx) {
+        fprintf(stderr, "Could not allocate decoder context. Error Code %d\n", AVERROR(errno));
         goto finally_close_input;
     }
     fprintf(stdout, "%s allocated\n", "AVCodecContext");
 
     // 7. 
     if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
-        fprintf(stderr, "%s\n", "Could not open codec");
+        fprintf(stderr, "Could not open codec\n");
         avcodec_free_context(&codec_ctx);
         goto finally_close_input;
     }
@@ -76,9 +76,17 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
     av_init_packet(&packet);
     packet.data = NULL;
     packet.size = 0;
-    while (!av_read_frame(format_ctx, &packet)) {       
-        uint8_t *packet_data = NULL;
-        memcpy(&packet_data, &packet.data, sizeof(uint8_t) * packet.size);    
+    fprintf(stdout, "Entering in Loop!\n");  
+    while (!av_read_frame(format_ctx, &packet)) {     
+        fprintf(stdout, "Going in Loop!\n");  
+        if(packet.size == 0){
+            fprintf(stdout, "Got an empty Packet! Keep going\n");  
+            continue;
+        }
+        uint8_t *packet_data = (uint8_t*)malloc(sizeof(uint8_t)*packet.size);
+        //fprintf(stdout, "Copying packet of size %d!\n", packet.size);  
+        memcpy(packet_data, packet.data, packet.size);    
+        //fprintf(stdout, "Packet duplicated!\n");  
 
         struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -87,9 +95,14 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
         stream->packet_data_size = packet.size;
         stream->timestamp = tv;
 
-        fprintf(stdout, "Going!\n");
-        AVFrame *frame = av_frame_alloc();        
+        //fprintf(stdout, "Stream Object Updated!\n");  
+        
+        //fprintf(stdout, "Allocating AVFrame!\n");  
+        AVFrame *frame = av_frame_alloc();
+        //fprintf(stdout, "AVFrame allocated!\n");  
+        //fprintf(stdout, "Decoding Packet to Frame!\n");  
         decode(codec_ctx, frame, &packet);
+        //fprintf(stdout, "Packet decoded to Frame!\n");  
 
         av_packet_unref(&packet);
         if (avio_ctx->eof_reached) {
@@ -111,38 +124,35 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
 static int ReadRawPacket(void *data, uint8_t *buf, int buf_size)
 {
     char *_current_ = "ReadRawPacket";
-    fprintf(stdout, "%s starting ... \n", _current_);
-
-    /*
+    //fprintf(stdout, "%s starting ... \n", _current_);
+    
     struct fstream *fdata = data;
-
-    fprintf(stdout, "%s Retrieving struct fstream\n", _current_);
-
-    if(feof(fdata->file_pointer))
+    //fprintf(stdout, "%s Retrieving struct fstream\n", _current_);
+    if(feof(fdata->file_pointer)){
+        fprintf(stderr, "%s EOF reached up\n", _current_);
         return AVERROR_EOF;
-
-    fprintf(stdout, "%s EOF not reached up\n", _current_);
+    }
+    //fprintf(stdout, "%s EOF not reached up\n", _current_);
 
     uint8_t inbuf[buf_size + AV_INPUT_BUFFER_PADDING_SIZE];
-    */
     size_t data_size = 0;
     /* set end of buffer to 0 (this ensures that no overreading happens for damaged MPEG streams) */
-    /*
+
     memset(inbuf + buf_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
-
-    fprintf(stdout, "%s Input Buffer Initialized\n", _current_);
-
+    //fprintf(stdout, "%s Input Buffer Initialized\n", _current_);
     data_size = fread(inbuf, 1, buf_size, fdata->file_pointer);
-
-    fprintf(stdout, "%s File Chunk %d Bytes Read. Returned %d\n", _current_, buf_size, data_size);
-
-    if (data_size == -1)
+    //fprintf(stdout, "%s File Chunk %d Bytes Read. Returned %d\n", _current_, buf_size, data_size);
+    if(data_size == 0){
+        fprintf(stderr, "%s Got empty file chink\n", _current_);
+        return 0;
+    }
+    if (data_size == -1){
+        fprintf(stderr, "%s Got Error on File Reading. Error:%d\n", _current_, errno);
         return AVERROR(errno);
-
-    fprintf(stdout, "%s Read data, ready to be copied\n", _current_);
-    memcpy(buf, &inbuf, sizeof(uint8_t) * (buf_size + AV_INPUT_BUFFER_PADDING_SIZE));  
-    */
-    fprintf(stdout, "%s completed\n", _current_);
+    }
+    //fprintf(stdout, "%s Read data, ready to be copied\n", _current_);    
+    memcpy(buf, &inbuf, data_size);   
+    //fprintf(stdout, "%s completed\n", _current_);
 
     return data_size;
 }

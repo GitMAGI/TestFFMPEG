@@ -72,7 +72,8 @@ int CStreamDecoder(const char *filename){
         size_t data_size = fread(inbuf, 1, BUFSIZE, f);
         if (!data_size)
             break;    
-        uint8_t *data = inbuf;        
+        uint8_t *data = (uint8_t*)malloc(sizeof(uint8_t) * (BUFSIZE + AV_INPUT_BUFFER_PADDING_SIZE));
+        memcpy(data, inbuf, data_size);
         while (data_size > 0) {
             int ret = av_parser_parse2(parser, codec_ctx, &packet->data, &packet->size, data, data_size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
             if (ret < 0) {
