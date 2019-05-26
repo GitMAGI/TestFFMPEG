@@ -1,0 +1,1 @@
+.\bin\testFFMPEG.exe > .\log\log_20190523_131500.log 2> .\log\log_20190523_131500.err

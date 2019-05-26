@@ -4,8 +4,6 @@
 #include <libavformat/avformat.h>
 
 int CStreamDecoder(const char *filename);
-static void decode(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt);
-
 void TestCStreamDecoder(const char *filename);
 
 #endif

@@ -1,0 +1,2 @@
+ffmpeg -i .\asset\SampleVideo_360x240_10mb.mp4 -f rawvideo -pix_fmt yuv420p -s 360x240 .\asset\SampleVideo_360x240_10mb.yuv
+ffmpeg -i .\asset\SampleVideo_360x240_10mb.mp4 -f rawvideo -pix_fmt yuv420p .\asset\SampleVideo_360x240_10mb.yuv

@@ -27,7 +27,6 @@ struct fstream {
 
 static int ReadRawPacket(void *, uint8_t *, int);
 int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int));
-static void decode(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt);
 
 void TestCStreamDecoderFP(const char *filename);
 

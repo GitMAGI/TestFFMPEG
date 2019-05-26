@@ -3,3 +3,6 @@ bin
 bin/
 .vscode
 .vscode/
+log
+log/
+asset/*.yuv

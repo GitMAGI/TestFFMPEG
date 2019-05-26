@@ -2,6 +2,7 @@
 
 #include "StreamDecoderFP.h"
 #include "TestTimeStamp.h"
+#include "custom/log.h"
 
 void fakeProcessing(struct fstream* data)
 {
@@ -15,12 +16,11 @@ void TestTimeStamp(uint8_t counter)
     struct fstream *fdata = (struct fstream *)malloc(sizeof(struct fstream));
 
     for(int i=0; i<counter; i++){
-        fprintf(stdout, "Iterazione %d\n", i);
+        infoLog("Iterazione %d", i);
         fakeProcessing(fdata);
         long sec = fdata->timestamp.tv_sec;
         long usec = fdata->timestamp.tv_usec;
-        fprintf(stdout, "sec: %d\n", sec);
-        fprintf(stdout, "usec: %d\n", usec);
-        fprintf(stdout, "\n");
+        infoLog("sec: %d", sec);
+        infoLog("usec: %d", usec);
     }
 }

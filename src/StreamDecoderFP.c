@@ -2,29 +2,30 @@
 #include <inttypes.h>
 #include <libavformat/avformat.h>
 
+#include "custom/log.h"
+#include "DecodingUtility.h"
 #include "StreamDecoderFP.h"
 
 #define BUFSIZE 0x10000
 
 int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
-    char * _current_ = "CStreamDecoderFP";
-    fprintf(stdout, "%s starting ...\n", _current_);
+    infoLog("Starting ...");
 
     // 1. AV Format Context Allocation
     AVFormatContext *format_ctx = avformat_alloc_context();
     if (!format_ctx) {
-        fprintf(stderr, "%s\n", "Could not allocate format context");
+        errorLog("Could not allocate format context");
         goto end;
     }
-    fprintf(stdout, "%s created\n", "AVFormatContext");
+    infoLog("%s created", "AVFormatContext");
 
     // 2. Buffer Allocation
     unsigned char *buffer = av_malloc(BUFSIZE);
     if (!buffer) {
-        fprintf(stderr, "%s\n", "Could not allocate buffer");        
+        errorLog("Could not allocate buffer");        
         goto finally_free_format_ctx;
     }
-    fprintf(stdout, "Buffer Allocated\n");
+    infoLog("Buffer Allocated");
 
     // 3. AVIO Context Allocation
     int (*read_packet)(void *, uint8_t *, int) = ReadRawPacket;
@@ -32,61 +33,61 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
     struct fstream *stream = data;
     AVIOContext *avio_ctx = avio_alloc_context(buffer, BUFSIZE, 0, stream, read_packet, NULL, NULL);      
     if (!avio_ctx) {
-        fprintf(stderr, "%s\n", "Could not allocate avio context");
+        errorLog("Could not allocate avio context");
         av_free(buffer);
         goto finally_free_format_ctx;
     }
-    fprintf(stdout, "%s created\n", "AVIOContext");
+    infoLog("%s created", "AVIOContext");
     format_ctx->pb = avio_ctx;
-    fprintf(stdout, "%s assigned to %s\n", "AVIOContext", "AVFormatContext");
+    infoLog("%s assigned to %s", "AVIOContext", "AVFormatContext");
 
     // 4. 
     if (avformat_open_input(&format_ctx, NULL, NULL, NULL) < 0) {
-        fprintf(stderr, "%s\n", "Could not open video stream");
+        errorLog("Could not open video stream");
         goto finally_free_avio_ctx;
     }
-    fprintf(stdout, "%s input opened\n", "AVFormatContext");
+    infoLog("%s input opened", "AVFormatContext");
 
     // 5.
     AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!codec) {
-        fprintf(stderr, "%s\n", "H.264 decoder not found");
+        errorLog("H.264 decoder not found");
         goto end;
     }
-    fprintf(stdout, "%s decoder H264 found\n", "AVCodec");
+    infoLog("%s decoder H264 found", "AVCodec");
 
     // 6.
     AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
     if (!codec_ctx) {
-        fprintf(stderr, "Could not allocate decoder context. Error Code %d\n", AVERROR(errno));
+        errorLog("Could not allocate decoder context. Error Code %d", AVERROR(errno));
         goto finally_close_input;
     }
-    fprintf(stdout, "%s allocated\n", "AVCodecContext");
+    infoLog("%s allocated", "AVCodecContext");
 
     // 7. 
     if (avcodec_open2(codec_ctx, codec, NULL) < 0) {
-        fprintf(stderr, "Could not open codec\n");
+        errorLog("Could not open codec");
         avcodec_free_context(&codec_ctx);
         goto finally_close_input;
     }
-    fprintf(stdout, "%s opened\n", "AVCodecContext");
+    infoLog("%s opened", "AVCodecContext");
 
     // 8.
     AVPacket packet;
     av_init_packet(&packet);
     packet.data = NULL;
     packet.size = 0;
-    fprintf(stdout, "Entering in Loop!\n");  
+    infoLog("Entering in Loop!"); 
     while (!av_read_frame(format_ctx, &packet)) {     
-        fprintf(stdout, "Going in Loop!\n");  
+        //infoLog("Going in Loop!");  
         if(packet.size == 0){
-            fprintf(stdout, "Got an empty Packet! Keep going\n");  
+            infoLog("Got an empty Packet! Keep going");  
             continue;
         }
         uint8_t *packet_data = (uint8_t*)malloc(sizeof(uint8_t)*packet.size);
-        //fprintf(stdout, "Copying packet of size %d!\n", packet.size);  
+        //infoLog("Copying packet of size %d!", packet.size);  
         memcpy(packet_data, packet.data, packet.size);    
-        //fprintf(stdout, "Packet duplicated!\n");  
+        //infoLog("Packet duplicated!");  
 
         struct timeval tv;
         gettimeofday(&tv, NULL);
@@ -95,14 +96,14 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
         stream->packet_data_size = packet.size;
         stream->timestamp = tv;
 
-        //fprintf(stdout, "Stream Object Updated!\n");  
+        //infoLog("Stream Object Updated!");  
         
-        //fprintf(stdout, "Allocating AVFrame!\n");  
+        //infoLog("Allocating AVFrame!");  
         AVFrame *frame = av_frame_alloc();
-        //fprintf(stdout, "AVFrame allocated!\n");  
-        //fprintf(stdout, "Decoding Packet to Frame!\n");  
-        decode(codec_ctx, frame, &packet);
-        //fprintf(stdout, "Packet decoded to Frame!\n");  
+        //infoLog("AVFrame allocated!");  
+        //infoLog("Decoding Packet to Frame!");  
+        DecodePacketToFrame(codec_ctx, frame, &packet);
+        infoLog("Packet decoded to Frame! Frame Counter: %d", codec_ctx->frame_number);  
 
         av_packet_unref(&packet);
         if (avio_ctx->eof_reached) {
@@ -117,66 +118,44 @@ int CStreamDecoderFP(void *data, int(*read_raw_data)(void *, uint8_t *, int)){
     finally_free_format_ctx:
         avformat_free_context(format_ctx);
     end:
-        fprintf(stdout, "%s completed\n", _current_);
+        infoLog("Completed");
         return 0;
 }
 
 static int ReadRawPacket(void *data, uint8_t *buf, int buf_size)
 {
-    char *_current_ = "ReadRawPacket";
-    //fprintf(stdout, "%s starting ... \n", _current_);
+    //infoLog("Starting ... ");
     
     struct fstream *fdata = data;
-    //fprintf(stdout, "%s Retrieving struct fstream\n", _current_);
+    //infoLog("Retrieving struct fstream");
     if(feof(fdata->file_pointer)){
-        fprintf(stderr, "%s EOF reached up\n", _current_);
+        errorLog("EOF reached up");
         return AVERROR_EOF;
     }
-    //fprintf(stdout, "%s EOF not reached up\n", _current_);
+    //infoLog("EOF not reached up");
 
     uint8_t inbuf[buf_size + AV_INPUT_BUFFER_PADDING_SIZE];
     size_t data_size = 0;
     /* set end of buffer to 0 (this ensures that no overreading happens for damaged MPEG streams) */
 
     memset(inbuf + buf_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
-    //fprintf(stdout, "%s Input Buffer Initialized\n", _current_);
+    //infoLog("%s Input Buffer Initialized");
     data_size = fread(inbuf, 1, buf_size, fdata->file_pointer);
-    //fprintf(stdout, "%s File Chunk %d Bytes Read. Returned %d\n", _current_, buf_size, data_size);
+    //infoLog("File Chunk %d Bytes Read. Returned %d", buf_size, data_size);
     if(data_size == 0){
-        fprintf(stderr, "%s Got empty file chink\n", _current_);
+        errorLog("Got an empty file chunk");
         return 0;
     }
     if (data_size == -1){
-        fprintf(stderr, "%s Got Error on File Reading. Error:%d\n", _current_, errno);
+        errorLog("Got Error on File Reading. Error: %d", errno);
         return AVERROR(errno);
     }
-    //fprintf(stdout, "%s Read data, ready to be copied\n", _current_);    
-    memcpy(buf, &inbuf, data_size);   
-    //fprintf(stdout, "%s completed\n", _current_);
+    //infoLog("Read data, ready to be copied");    
+    //memcpy(buf, &inbuf, data_size);   
+    memcpy(buf, &inbuf, buf_size);
+    //infoLog("Completed");
 
     return data_size;
-}
-
-static void decode(AVCodecContext *dec_ctx, AVFrame *frame, AVPacket *pkt)
-{
-    char buf[1024];
-    int ret;
-    ret = avcodec_send_packet(dec_ctx, pkt);
-    if (ret < 0) {
-        fprintf(stderr, "Error sending a packet for decoding\n");
-        return;
-    }
-    while (ret >= 0) {
-        ret = avcodec_receive_frame(dec_ctx, frame);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-            return;
-        else if (ret < 0) {
-            fprintf(stderr, "Error during decoding\n");
-            return;
-        }
-        fprintf(stdout, "Using frame %3d\n", dec_ctx->frame_number);
-        fflush(stdout);
-    }
 }
 
 void TestCStreamDecoderFP(const char *filename)
@@ -186,14 +165,16 @@ void TestCStreamDecoderFP(const char *filename)
     FILE *f;
     f = fopen(filename, "rb");
     if (!f) {
-        fprintf(stderr, "Could not open %s\n", filename);
+        errorLog("Could not open %s", filename);
         return;
     }
+    infoLog("File %s opened", filename);
     fdata->file_pointer = f;
 
     int(*fread_raw_data)(void *, uint8_t *, int) = ReadRawPacket;
     int r = CStreamDecoderFP(fdata, fread_raw_data);
-    fprintf(stdout, "CStreamDecoderFP returned %d\n", r);
+    infoLog("CStreamDecoderFP returned %d", r);
 
     fclose(f);
+    infoLog("File %s closed", filename);
 }
